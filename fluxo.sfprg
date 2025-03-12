@@ -1,0 +1,13 @@
+int   n1   # Int
+int   n2
+int[] n3   # Int array
+int result
+
+print("Digite o primeiro número\n") # newline
+print("Digite o primeiro número")   # no new line
+
+n1 = input()
+n2 = input()
+result = n1 * n2
+
+print("Resultado é {result}")
