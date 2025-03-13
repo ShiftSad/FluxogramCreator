@@ -18,71 +18,238 @@ def xml_converter(code):
     def parse_code(code_lines):
         result = []
         i = 0
-
+        
         while i < len(code_lines):
             line = code_lines[i].strip()
             comments = line.split('#', 1)
             main_line = comments[0].strip()
-
+            
             if not main_line:
                 i += 1
                 continue
-
+                
             # If statement
             if_match = re.match(r'if\s+(.+):', main_line)
             if if_match:
                 condition = if_match.group(1)
                 if_block = {'type': 'if', 'condition': condition, 'then': [], 'else': []}
-
-                # Processar o bloco then
+                
+                # Process the then block
                 i += 1
                 current_branch = 'then'
-
+                
                 while i < len(code_lines):
                     sub_line = code_lines[i].strip()
                     sub_comments = sub_line.split('#', 1)
                     sub_main = sub_comments[0].strip()
-
+                    
                     if not sub_main:
                         i += 1
                         continue
-
-                    # Procurar por else
+                        
+                    # Check for else
                     if sub_main == 'else:':
                         current_branch = 'else'
                         i += 1
                         continue
-
-                    # Procurar por end
+                        
+                    # Check for end
                     if sub_main == 'end':
                         i += 1
                         break
-
-                    # Procurando recursivamente por if aninhado
-                    if re.match(r'if\s+(.+):', sub_main):
-                        nested_if, new_i = parse_code(code_lines[i:])
-                        if_block[current_branch].append(nested_if)
+                        
+                    # Recursive parsing for nested structures
+                    if re.match(r'if\s+(.+):|for\s+(.+)\s+in\s+range\((.+)\):|while\s+(.+):|do:', sub_main):
+                        nested_structure, new_i = parse_code(code_lines[i:])
+                        if_block[current_branch].append(nested_structure)
                         i += new_i
                     else:
                         if_block[current_branch].append(sub_main)
                         i += 1
-
+                        
                 result.append(if_block)
                 continue
-
+                
+            # For loop
+            for_match = re.match(r'for\s+(\w+)\s+in\s+range\((.+)\):', main_line)
+            if for_match:
+                var_name = for_match.group(1)
+                range_params = for_match.group(2).split(',')
+                
+                # Parse range parameters
+                if len(range_params) == 1:
+                    start = "0"
+                    end = range_params[0].strip()
+                    step = "1"
+                elif len(range_params) == 2:
+                    start = range_params[0].strip()
+                    end = range_params[1].strip()
+                    step = "1"
+                else:
+                    start = range_params[0].strip()
+                    end = range_params[1].strip()
+                    step = range_params[2].strip()
+                
+                direction = "inc" if step == "1" or float(step) > 0 else "dec"
+                step = str(abs(int(float(step)))) if step.replace('.', '', 1).isdigit() else "1"
+                
+                for_block = {
+                    'type': 'for',
+                    'variable': var_name,
+                    'start': start,
+                    'end': end,
+                    'direction': direction,
+                    'step': step,
+                    'body': []
+                }
+                
+                # Process the loop body
+                i += 1
+                while i < len(code_lines):
+                    sub_line = code_lines[i].strip()
+                    sub_comments = sub_line.split('#', 1)
+                    sub_main = sub_comments[0].strip()
+                    
+                    if not sub_main:
+                        i += 1
+                        continue
+                        
+                    # Check for end
+                    if sub_main == 'end':
+                        i += 1
+                        break
+                        
+                    # Recursive parsing for nested structures
+                    if re.match(r'if\s+(.+):|for\s+(.+)\s+in\s+range\((.+)\):|while\s+(.+):|do:', sub_main):
+                        nested_structure, new_i = parse_code(code_lines[i:])
+                        for_block['body'].append(nested_structure)
+                        i += new_i
+                    else:
+                        for_block['body'].append(sub_main)
+                        i += 1
+                        
+                result.append(for_block)
+                continue
+                
+            # While loop
+            while_match = re.match(r'while\s+(.+):', main_line)
+            if while_match:
+                condition = while_match.group(1)
+                while_block = {
+                    'type': 'while',
+                    'condition': condition,
+                    'body': []
+                }
+                
+                # Process the loop body
+                i += 1
+                while i < len(code_lines):
+                    sub_line = code_lines[i].strip()
+                    sub_comments = sub_line.split('#', 1)
+                    sub_main = sub_comments[0].strip()
+                    
+                    if not sub_main:
+                        i += 1
+                        continue
+                        
+                    # Check for end
+                    if sub_main == 'end':
+                        i += 1
+                        break
+                        
+                    # Recursive parsing for nested structures
+                    if re.match(r'if\s+(.+):|for\s+(.+)\s+in\s+range\((.+)\):|while\s+(.+):|do:', sub_main):
+                        nested_structure, new_i = parse_code(code_lines[i:])
+                        while_block['body'].append(nested_structure)
+                        i += new_i
+                    else:
+                        while_block['body'].append(sub_main)
+                        i += 1
+                        
+                result.append(while_block)
+                continue
+                
+            # Do-while loop
+            do_match = re.match(r'do:', main_line)
+            if do_match:
+                do_block = {
+                    'type': 'do',
+                    'condition': '',
+                    'body': []
+                }
+                
+                # Process the loop body
+                i += 1
+                while i < len(code_lines):
+                    sub_line = code_lines[i].strip()
+                    sub_comments = sub_line.split('#', 1)
+                    sub_main = sub_comments[0].strip()
+                    
+                    if not sub_main:
+                        i += 1
+                        continue
+                    
+                    # Check for while condition at the end
+                    while_end_match = re.match(r'while\s+(.+)', sub_main)
+                    if while_end_match:
+                        do_block['condition'] = while_end_match.group(1)
+                        i += 1
+                        break
+                        
+                    # Check for end (shouldn't happen in do-while but just in case)
+                    if sub_main == 'end':
+                        i += 1
+                        break
+                        
+                    # Recursive parsing for nested structures
+                    if re.match(r'if\s+(.+):|for\s+(.+)\s+in\s+range\((.+)\):|while\s+(.+):|do:', sub_main):
+                        nested_structure, new_i = parse_code(code_lines[i:])
+                        do_block['body'].append(nested_structure)
+                        i += new_i
+                    else:
+                        do_block['body'].append(sub_main)
+                        i += 1
+                        
+                result.append(do_block)
+                continue
+            
+            # Regular line
             result.append(main_line)
             i += 1
-
+            
         return result, i
 
     def process_structure(structure, parent_element):
         for item in structure:
-            if isinstance(item, dict) and item['type'] == 'if':
-                if_element = ET.SubElement(parent_element, 'if', expression=item['condition'])
-                then_element = ET.SubElement(if_element, 'then')
-                process_lines(item['then'], then_element)
-                else_element = ET.SubElement(if_element, 'else')
-                process_lines(item['else'], else_element)
+            if isinstance(item, dict):
+                if item['type'] == 'if':
+                    # Create if statement with condition
+                    if_element = ET.SubElement(parent_element, 'if', expression=item['condition'])
+                    
+                    # Process then branch
+                    then_element = ET.SubElement(if_element, 'then')
+                    process_lines(item['then'], then_element)
+                    
+                    # Process else branch
+                    else_element = ET.SubElement(if_element, 'else')
+                    process_lines(item['else'], else_element)
+                elif item['type'] == 'for':
+                    # Create for loop
+                    for_element = ET.SubElement(parent_element, 'for', 
+                                               variable=item['variable'],
+                                               start=item['start'],
+                                               end=item['end'],
+                                               direction=item['direction'],
+                                               step=item['step'])
+                    process_lines(item['body'], for_element)
+                elif item['type'] == 'while':
+                    # Create while loop
+                    while_element = ET.SubElement(parent_element, 'while', expression=item['condition'])
+                    process_lines(item['body'], while_element)
+                elif item['type'] == 'do':
+                    # Create do-while loop
+                    do_element = ET.SubElement(parent_element, 'do', expression=item['condition'])
+                    process_lines(item['body'], do_element)
             else:
                 process_line(item, parent_element)
 
