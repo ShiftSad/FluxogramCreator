@@ -1,13 +1,12 @@
-int   n1   # Int
-int   n2
-int[] n3   # Int array
+int n1
+int n2
 int result
 
-print("Digite o primeiro número\n") # newline
-print("Digite o primeiro número")   # no new line
-
+print("Digite o primeiro número")
 n1 = input()
+print("Digite o segundo número")
 n2 = input()
+
 result = n1 * n2
 
 print("Resultado é {result}")
