@@ -61,7 +61,7 @@ def xml_converter(code):
                     # Recursive parsing for nested structures
                     if re.match(r'if\s+(.+):|for\s+(.+)\s+in\s+range\((.+)\):|while\s+(.+):|do:', sub_main):
                         nested_structure, new_i = parse_code(code_lines[i:])
-                        if_block[current_branch].append(nested_structure)
+                        if_block[current_branch].extend(nested_structure)
                         i += new_i
                     else:
                         if_block[current_branch].append(sub_main)
@@ -255,7 +255,10 @@ def xml_converter(code):
 
     def process_lines(lines, parent_element):
         for line in lines:
-            if isinstance(line, dict):
+            # If line is a list, iterate over its items
+            if isinstance(line, list):
+                process_lines(line, parent_element)
+            elif isinstance(line, dict):
                 process_structure([line], parent_element)
             else:
                 process_line(line, parent_element)
@@ -281,6 +284,13 @@ def xml_converter(code):
             array_size = array_size if array_size else ""
 
             ET.SubElement(parent_element, 'declare', name=name, type=type_flowgorithm, array=is_array, size=array_size)
+            return
+
+        # Verificar se é uma atribuição de array
+        array_assign_match = re.match(r'(\w+)\[(\w+)\]\s*=\s*(.*)', line)
+        if array_assign_match:
+            array_name, index, value = array_assign_match.groups()
+            ET.SubElement(parent_element, 'assign', variable=f"{array_name}[{index}]", expression=value)
             return
 
         # Verificar se é uma entrada de dados
