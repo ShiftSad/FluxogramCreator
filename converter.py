@@ -1,3 +1,4 @@
+from xml.dom import minidom
 import xml.etree.ElementTree as ET
 import re
 
@@ -36,7 +37,7 @@ def xml_converter(code):
                 type_flowgorithm = "Boolean"
             
             is_array = "True" if array_indicator else "False"
-            array_size = array_size if array_size else "0"
+            array_size = array_size if array_size else ""
 
             ET.SubElement(body, 'declare', name=name, type=type_flowgorithm, array=is_array, size=array_size)
             continue
@@ -48,3 +49,62 @@ def xml_converter(code):
             ET.SubElement(body, 'input', variable=name)
             continue
 
+        # Verificar se é uma saída de dados
+        # print = no new line
+        # println = new line
+        match_output = re.match(r'print\("([^"]*)"\)', main_line)
+        if match_output:
+            text = match_output.group(1)
+
+            # Verificar se há variáveis
+            processed_text = text
+            vars_output = re.findall(r'\{(\w+)\}', text)
+            
+            for var in vars_output:
+                processed_text = processed_text.replace(f"{{{var}}}", '" & ' + var + ' & "')
+            
+            # Se houver variáveis, reformatar a expressão
+            if vars_output:
+                processed_text = '"' + processed_text + '"'
+                processed_text = processed_text.replace('" & "', '')
+            else:
+                processed_text = f'"{processed_text}"'
+                        
+            ET.SubElement(body, "output", expression=processed_text, newline="True")
+            continue
+
+        # Verificar se é uma atribuição
+        match_assign = re.match(r'(\w+)\s*=\s*(.*)', main_line)
+        if match_assign:
+            name_var, expression = match_assign.groups()
+            
+            # Verificar se não é uma entrada de dados (já tratado acima)
+            if "input()" not in expression:
+                ET.SubElement(body, "assign", variable=name_var, expression=expression)
+            continue
+
+    # Criar uma string XML formatada
+    rough_string = ET.tostring(body, 'utf-8')
+    reparsed = minidom.parseString(rough_string)
+    xml_string = reparsed.toprettyxml(indent="    ")
+
+    return xml_string
+
+# Exemplo de uso
+if __name__ == "__main__":
+    codigo_exemplo = '''
+int n1
+int n2
+int result
+
+print("Digite o primeiro número")
+n1 = input()
+print("Digite o segundo número")
+n2 = input()
+
+result = n1 * n2
+
+print("Resultado é {result}")
+'''
+    xml_body = xml_converter(codigo_exemplo)
+    print(xml_body)
