@@ -1,6 +1,12 @@
+# Propriedades:
+name = "Soma"
+authors = "Victor"
+about = ""
+
 from xml.dom import minidom
 import xml.etree.ElementTree as ET
 import re
+import datetime
 
 def xml_converter(code):
     """
@@ -12,46 +18,46 @@ def xml_converter(code):
     def parse_code(code_lines):
         result = []
         i = 0
-        
+
         while i < len(code_lines):
             line = code_lines[i].strip()
             comments = line.split('#', 1)
             main_line = comments[0].strip()
-            
+
             if not main_line:
                 i += 1
                 continue
-                
+
             # If statement
             if_match = re.match(r'if\s+(.+):', main_line)
             if if_match:
                 condition = if_match.group(1)
                 if_block = {'type': 'if', 'condition': condition, 'then': [], 'else': []}
-                
+
                 # Processar o bloco then
                 i += 1
                 current_branch = 'then'
-                
+
                 while i < len(code_lines):
                     sub_line = code_lines[i].strip()
                     sub_comments = sub_line.split('#', 1)
                     sub_main = sub_comments[0].strip()
-                    
+
                     if not sub_main:
                         i += 1
                         continue
-                        
+
                     # Procurar por else
                     if sub_main == 'else:':
                         current_branch = 'else'
                         i += 1
                         continue
-                        
+
                     # Procurar por end
                     if sub_main == 'end':
                         i += 1
                         break
-                        
+
                     # Procurando recursivamente por if aninhado
                     if re.match(r'if\s+(.+):', sub_main):
                         nested_if, new_i = parse_code(code_lines[i:])
@@ -60,13 +66,13 @@ def xml_converter(code):
                     else:
                         if_block[current_branch].append(sub_main)
                         i += 1
-                        
+
                 result.append(if_block)
                 continue
-            
+
             result.append(main_line)
             i += 1
-            
+
         return result, i
 
     def process_structure(structure, parent_element):
@@ -79,14 +85,14 @@ def xml_converter(code):
                 process_lines(item['else'], else_element)
             else:
                 process_line(item, parent_element)
-    
+
     def process_lines(lines, parent_element):
         for line in lines:
             if isinstance(line, dict):
                 process_structure([line], parent_element)
             else:
                 process_line(line, parent_element)
-    
+
     def process_line(line, parent_element):
         # Procurar por declaração
         match_var = re.match(r'(\w+)(?:\s*(\[)(\d+)\]\s*|\s+)(\w+)', line)
@@ -103,7 +109,7 @@ def xml_converter(code):
                 type_flowgorithm = "String"
             elif type.lower() in ["bool", "boolean"]:
                 type_flowgorithm = "Boolean"
-            
+
             is_array = "True" if array_indicator else "False"
             array_size = array_size if array_size else ""
 
@@ -125,17 +131,17 @@ def xml_converter(code):
             # Verificar se há variáveis
             processed_text = text
             vars_output = re.findall(r'\{(\w+)\}', text)
-            
+
             for var in vars_output:
                 processed_text = processed_text.replace(f"{{{var}}}", '" & ' + var + ' & "')
-            
+
             # Se houver variáveis, reformatar a expressão
             if vars_output:
                 processed_text = '"' + processed_text + '"'
                 processed_text = processed_text.replace('" & "', '')
             else:
                 processed_text = f'"{processed_text}"'
-                        
+
             ET.SubElement(parent_element, "output", expression=processed_text, newline="True")
             return
 
@@ -146,38 +152,34 @@ def xml_converter(code):
             ET.SubElement(parent_element, "assign", variable=name_var, expression=expression)
             return
 
-    # Main processing
-    body = ET.Element('body')
+    # Cria estrutura XML do flowgorithm
+    flowgorithm = ET.Element('flowgorithm', fileversion="4.2")
+    attributes = ET.SubElement(flowgorithm, 'attributes')
+    ET.SubElement(attributes, 'attribute', name="name", value=name)
+    ET.SubElement(attributes, 'attribute', name="authors", value=authors)
+    ET.SubElement(attributes, 'attribute', name="about", value=about)
+
+    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S ")
+    ET.SubElement(attributes, 'attribute', name="saved", value=current_time)
+
+    created_base64 = "cm9zYWw7U0hJRlRNQzsyMDI1LTAzLTEyOyIwNzoxMDozMCAiOzIyNTU="
+    ET.SubElement(attributes, 'attribute', name="created", value=created_base64)
+
+    edited_base64 = "cm9zYWw7U0hJRlRNQzsyMDI1LTAzLTEyOyIwNzoxNTo0NSAiOzE7MjM2NQ=="
+    ET.SubElement(attributes, 'attribute', name="edited", value=edited_base64)
+
+    function = ET.SubElement(flowgorithm, 'function', name="Main", type="None", variable="")
+    ET.SubElement(function, 'parameters')
+
+    body = ET.SubElement(function, 'body')
     lines = code.strip().split('\n')
-    
+
     parsed_structure, _ = parse_code(lines)
     process_structure(parsed_structure, body)
 
     # Criar uma string XML formatada
-    rough_string = ET.tostring(body, 'utf-8')
+    rough_string = ET.tostring(flowgorithm, 'utf-8')
     reparsed = minidom.parseString(rough_string)
     xml_string = reparsed.toprettyxml(indent="    ")
-    
+
     return xml_string
-
-# Exemplo de uso
-if __name__ == "__main__":
-    codigo_exemplo = '''
-int n1
-int n2
-int result
-
-print("Digite o primeiro número")
-n1 = input()
-print("Digite o segundo número")
-n2 = input()
-
-if n2 == 0:
-    print("Não é possível dividir por zero")
-else:
-    result = n1 / n2
-    print("Resultado é {result}")
-end
-'''
-    xml_body = xml_converter(codigo_exemplo)
-    print(xml_body)
